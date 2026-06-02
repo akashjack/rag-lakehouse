@@ -1,23 +1,41 @@
+# Python
 __pycache__/
-*.pyc
-
-.env
-venv/
+*.py[cod]
+*.egg-info/
 .venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
+# Node / Angular
+node_modules/
+dist/
+.angular/
+
+# Spark / Iceberg
+spark-warehouse/
+metastore_db/
+derby.log
+*.crc
+
+# Data
+data/
+*.parquet
+*.orc
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE
 .idea/
 .vscode/
+*.swp
 
-*.log
+# OS
+.DS_Store
+Thumbs.db
 
-data/
-
-minio-data/
-
-oracle-data/
-
-node_modules/
-
-dist/
-
-build/
+# Docker
+volumes/

@@ -1,0 +1,27 @@
+[project]
+name = "rag-lakehouse"
+version = "0.1.0"
+description = "Production RAG over Iceberg lakehouse with hybrid retrieval and agentic orchestration"
+requires-python = ">=3.11,<3.13"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["notebooks", "spark-warehouse"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "SIM", "PL", "RUF"]
+ignore = ["PLR0913", "PLR2004"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+exclude = ["notebooks", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q --strict-markers"
