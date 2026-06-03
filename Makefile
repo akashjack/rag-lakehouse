@@ -30,3 +30,6 @@ logs: ## Tail logs
 clean: ## Nuke containers + volumes
 	docker compose down -v
 	rm -rf volumes/ spark-warehouse/ metastore_db/
+
+typecheck: ## Run mypy type checking
+	cd services/ingestion && uv run mypy ingestion/
