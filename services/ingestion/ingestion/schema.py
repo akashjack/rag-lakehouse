@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Literal
 
@@ -14,7 +14,7 @@ class DocumentMetadata(BaseModel):
     source_url: HttpUrl
     title: str | None = None
     section: str | None = None
-    ingested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    ingested_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     content_hash: str = Field(..., description="SHA-256 of normalized text")
     raw_object_key: str = Field(..., description="MinIO key of raw blob")
     text_object_key: str = Field(..., description="MinIO key of normalized text JSON")
@@ -27,7 +27,7 @@ class DocumentMetadata(BaseModel):
         """Content-addressable ID. Stable across re-crawls if the extracted text is unchanged,
         regardless of HTML noise (CSRF tokens, build hashes, etc.)."""
         canonical = source_url.rstrip("/").lower()
-        payload = f"{canonical}|{normalized_text}".encode("utf-8")
+        payload = f"{canonical}|{normalized_text}".encode()
         return sha256(payload).hexdigest()[:32]
 
     @staticmethod

@@ -1,5 +1,4 @@
 import trafilatura
-
 from ingestion.extractors.base import ExtractionResult, Extractor
 
 

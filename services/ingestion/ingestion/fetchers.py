@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-
 import httpx
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -18,28 +16,39 @@ async def fetch_http(url: str, *, client: httpx.AsyncClient) -> bytes:
     return resp.content
 
 
-async def fetch_playwright(url: str) -> bytes:
-    """JS-rendered fetch; only use when fetch_http returns near-empty content."""
-    from playwright.async_api import async_playwright
+async def fetch_playwright(url: str, *, attempts: int = 2) -> bytes:
+    """Headless render with retry on transient errors.
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+    Playwright is lazy-imported because it's a heavyweight dep (Chromium driver,
+    asyncio runtime hooks) that only ~10% of pages need. Importing at module
+    top-level slows every CLI invocation including read-only commands like
+    `list-sources`.
+    """
+    from playwright.async_api import async_playwright  # noqa: PLC0415
+
+    timeout_ms = settings.request_timeout_s * 1000
+    last_err: Exception | None = None
+    for attempt in range(1, attempts + 1):
         try:
-            page = await browser.new_page(user_agent=settings.user_agent)
-            await page.goto(url, wait_until="networkidle", timeout=settings.request_timeout_s * 1000)
-            html = await page.content()
-            return html.encode("utf-8")
-        finally:
-            await browser.close()
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                try:
+                    page = await browser.new_page(user_agent=settings.user_agent)
+                    await page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+                    html = await page.content()
+                    return html.encode("utf-8")
+                finally:
+                    await browser.close()
+        except Exception as e:
+            last_err = e
+            log.warning("playwright.retry", url=url, attempt=attempt, err=str(e))
+    assert last_err is not None
+    raise last_err
 
 
 async def fetch_smart(url: str, client: httpx.AsyncClient) -> tuple[bytes, str]:
-    """Try plain HTTP first; fall back to Playwright if content seems JS-rendered.
-
-    Returns (bytes, how) where how is 'http' or 'playwright'.
-    """
+    """Try plain HTTP first; fall back to Playwright if response looks JS-rendered."""
     raw = await fetch_http(url, client=client)
-    # crude but effective: tech docs sites usually render content server-side
     if b"<noscript>" in raw or len(raw) < 2048:
         log.info("fetch.fallback_playwright", url=url, http_bytes=len(raw))
         return await fetch_playwright(url), "playwright"
