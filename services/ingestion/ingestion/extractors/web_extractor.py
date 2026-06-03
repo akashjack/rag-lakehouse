@@ -14,14 +14,17 @@ class WebExtractor(Extractor):
 
     def extract(self, url: str, raw: bytes) -> ExtractionResult:
         html = raw.decode("utf-8", errors="replace")
-        extracted = trafilatura.extract(
-            html,
-            url=url,
-            include_comments=False,
-            include_tables=True,
-            favor_recall=False,
-            output_format="txt",
-        ) or ""
+        extracted = (
+            trafilatura.extract(
+                html,
+                url=url,
+                include_comments=False,
+                include_tables=True,
+                favor_recall=False,
+                output_format="txt",
+            )
+            or ""
+        )
         meta = trafilatura.extract_metadata(html)
         title = getattr(meta, "title", None) if meta else None
         return ExtractionResult(

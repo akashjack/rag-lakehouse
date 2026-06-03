@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import structlog
+from pydantic import AnyUrl
 
 from ingestion.extractors.pdf_extractor import PDFExtractor
 from ingestion.schema import DocumentMetadata, NormalizedDocument
@@ -29,7 +30,7 @@ def ingest_pdf(path: Path, source: str) -> str | None:
         doc_id=doc_id,
         source=source,
         source_type="pdf",
-        source_url=url,
+        source_url=AnyUrl(url),
         title=result.title or path.stem,
         section=None,
         content_hash=DocumentMetadata.hash_text(result.text),

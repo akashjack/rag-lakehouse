@@ -7,6 +7,7 @@ from urllib.parse import urldefrag, urljoin
 
 import httpx
 import structlog
+from pydantic import AnyUrl
 from selectolax.parser import HTMLParser
 
 from ingestion.config import settings
@@ -79,7 +80,7 @@ async def crawl_source(src: WebSource) -> int:
                     doc_id=doc_id,
                     source=src.name,
                     source_type="web",
-                    source_url=url,
+                    source_url=AnyUrl(url),
                     title=result.title,
                     section=result.section,
                     content_hash=DocumentMetadata.hash_text(result.text),
@@ -98,7 +99,7 @@ async def crawl_source(src: WebSource) -> int:
                 return _extract_links(url, raw, src)
 
         while queue and len(seen) < settings.max_pages_per_source:
-            batch = []
+            batch: list[str] = []
             while queue and len(batch) < settings.crawl_concurrency:
                 u = queue.popleft()
                 if u in seen:

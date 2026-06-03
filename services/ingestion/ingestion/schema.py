@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 from hashlib import sha256
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import AnyUrl, BaseModel, Field
 
 SourceType = Literal["web", "pdf"]
 
@@ -11,7 +11,7 @@ class DocumentMetadata(BaseModel):
     doc_id: str = Field(..., description="SHA-256 of canonical source URL + normalized text")
     source: str = Field(..., description="Logical source: kubernetes|spring|angular|...")
     source_type: SourceType
-    source_url: HttpUrl
+    source_url: AnyUrl
     title: str | None = None
     section: str | None = None
     ingested_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -20,7 +20,7 @@ class DocumentMetadata(BaseModel):
     text_object_key: str = Field(..., description="MinIO key of normalized text JSON")
     byte_size: int
     char_count: int
-    extra: dict = Field(default_factory=dict)
+    extra: dict[str, Any] = Field(default_factory=dict)
 
     @staticmethod
     def make_doc_id(source_url: str, normalized_text: str) -> str:

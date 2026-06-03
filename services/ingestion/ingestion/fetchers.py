@@ -24,7 +24,7 @@ async def fetch_playwright(url: str, *, attempts: int = 2) -> bytes:
     top-level slows every CLI invocation including read-only commands like
     `list-sources`.
     """
-    from playwright.async_api import async_playwright  # noqa: PLC0415
+    from playwright.async_api import async_playwright
 
     timeout_ms = settings.request_timeout_s * 1000
     last_err: Exception | None = None
@@ -35,8 +35,9 @@ async def fetch_playwright(url: str, *, attempts: int = 2) -> bytes:
                 try:
                     page = await browser.new_page(user_agent=settings.user_agent)
                     await page.goto(url, wait_until="networkidle", timeout=timeout_ms)
-                    html = await page.content()
-                    return html.encode("utf-8")
+                    html: str = await page.content()
+                    encoded: bytes = html.encode("utf-8")
+                    return encoded
                 finally:
                     await browser.close()
         except Exception as e:
