@@ -1,0 +1,154 @@
+[1mdiff --git a/services/lakehouse/lakehouse/jobs/bronze_to_silver.py b/services/lakehouse/lakehouse/jobs/bronze_to_silver.py[m
+[1mindex 65b4718..98af3f5 100644[m
+[1m--- a/services/lakehouse/lakehouse/jobs/bronze_to_silver.py[m
+[1m+++ b/services/lakehouse/lakehouse/jobs/bronze_to_silver.py[m
+[36m@@ -1,4 +1,5 @@[m
+ """Bronze (MinIO JSON) -> Silver (Iceberg documents table)."""[m
+[32m+[m
+ from __future__ import annotations[m
+ [m
+ import structlog[m
+[36m@@ -72,9 +73,7 @@[m [mdef run() -> None:[m
+         )[m
+     """)[m
+ [m
+[31m-    df = spark.read.schema(BRONZE_SCHEMA).json([m
+[31m-        "s3a://bronze/source=*/date=*/text/*.json"[m
+[31m-    )[m
+[32m+[m[32m    df = spark.read.schema(BRONZE_SCHEMA).json("s3a://bronze/source=*/date=*/text/*.json")[m
+ [m
+     flat = df.select([m
+         F.col("metadata.doc_id").alias("doc_id"),[m
+[36m@@ -93,11 +92,7 @@[m [mdef run() -> None:[m
+     ).filter(F.col("doc_id").isNotNull() & F.col("text").isNotNull())[m
+ [m
+     w = Window.partitionBy("doc_id").orderBy(F.col("ingested_at").desc_nulls_last())[m
+[31m-    deduped = ([m
+[31m-        flat.withColumn("_rn", F.row_number().over(w))[m
+[31m-        .filter(F.col("_rn") == 1)[m
+[31m-        .drop("_rn")[m
+[31m-    )[m
+[32m+[m[32m    deduped = flat.withColumn("_rn", F.row_number().over(w)).filter(F.col("_rn") == 1).drop("_rn")[m
+ [m
+     log.info("bronze_to_silver.incoming", rows=deduped.count())[m
+ [m
+[1mdiff --git a/services/lakehouse/lakehouse/jobs/silver_to_gold.py b/services/lakehouse/lakehouse/jobs/silver_to_gold.py[m
+[1mindex b49d536..6f860fa 100644[m
+[1m--- a/services/lakehouse/lakehouse/jobs/silver_to_gold.py[m
+[1m+++ b/services/lakehouse/lakehouse/jobs/silver_to_gold.py[m
+[36m@@ -3,6 +3,7 @@[m
+ 1500-char chunks with 200-char overlap. Phase 4 swaps in token-aware[m
+ chunking once the embedding model is locked.[m
+ """[m
+[32m+[m
+ from __future__ import annotations[m
+ [m
+ import structlog[m
+[36m@@ -40,23 +41,27 @@[m [mdef chunk_text(text, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):[m
+             buf = candidate[m
+             continue[m
+         if buf:[m
+[31m-            out.append({[m
+[31m-                "chunk_index": len(out),[m
+[31m-                "text": buf,[m
+[31m-                "start_char": start,[m
+[31m-                "end_char": start + len(buf),[m
+[31m-            })[m
+[32m+[m[32m            out.append([m
+[32m+[m[32m                {[m
+[32m+[m[32m                    "chunk_index": len(out),[m
+[32m+[m[32m                    "text": buf,[m
+[32m+[m[32m                    "start_char": start,[m
+[32m+[m[32m                    "end_char": start + len(buf),[m
+[32m+[m[32m                }[m
+[32m+[m[32m            )[m
+             start = max(0, start + len(buf) - overlap)[m
+         if len(para) > size:[m
+             i = 0[m
+             while i < len(para):[m
+                 window = para[i : i + size][m
+[31m-                out.append({[m
+[31m-                    "chunk_index": len(out),[m
+[31m-                    "text": window,[m
+[31m-                    "start_char": pos + i,[m
+[31m-                    "end_char": pos + i + len(window),[m
+[31m-                })[m
+[32m+[m[32m                out.append([m
+[32m+[m[32m                    {[m
+[32m+[m[32m                        "chunk_index": len(out),[m
+[32m+[m[32m                        "text": window,[m
+[32m+[m[32m                        "start_char": pos + i,[m
+[32m+[m[32m                        "end_char": pos + i + len(window),[m
+[32m+[m[32m                    }[m
+[32m+[m[32m                )[m
+                 i += size - overlap[m
+             buf = ""[m
+         else:[m
+[36m@@ -64,12 +69,14 @@[m [mdef chunk_text(text, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):[m
+         pos += len(para) + 2[m
+ [m
+     if buf:[m
+[31m-        out.append({[m
+[31m-            "chunk_index": len(out),[m
+[31m-            "text": buf,[m
+[31m-            "start_char": start,[m
+[31m-            "end_char": start + len(buf),[m
+[31m-        })[m
+[32m+[m[32m        out.append([m
+[32m+[m[32m            {[m
+[32m+[m[32m                "chunk_index": len(out),[m
+[32m+[m[32m                "text": buf,[m
+[32m+[m[32m                "start_char": start,[m
+[32m+[m[32m                "end_char": start + len(buf),[m
+[32m+[m[32m            }[m
+[32m+[m[32m        )[m
+ [m
+     return out[m
+ [m
+[36m@@ -130,9 +137,9 @@[m [mdef run() -> None:[m
+         src.withColumn("chunks", chunk_udf(F.col("text")))[m
+         .withColumn("chunk", F.explode("chunks"))[m
+         .select([m
+[31m-            F.concat_ws([m
+[31m-                "::", F.col("doc_id"), F.col("chunk.chunk_index").cast("string")[m
+[31m-            ).alias("chunk_id"),[m
+[32m+[m[32m            F.concat_ws("::", F.col("doc_id"), F.col("chunk.chunk_index").cast("string")).alias([m
+[32m+[m[32m                "chunk_id"[m
+[32m+[m[32m            ),[m
+             F.col("doc_id"),[m
+             F.substring("doc_id", 1, 2).alias("doc_id_prefix"),[m
+             F.col("source"),[m
+[1mdiff --git a/services/lakehouse/lakehouse/spark_session.py b/services/lakehouse/lakehouse/spark_session.py[m
+[1mindex dc41f8c..7aa021f 100644[m
+[1m--- a/services/lakehouse/lakehouse/spark_session.py[m
+[1m+++ b/services/lakehouse/lakehouse/spark_session.py[m
+[36m@@ -1,4 +1,5 @@[m
+ """Spark session factory configured for Iceberg + MinIO/S3."""[m
+[32m+[m
+ from __future__ import annotations[m
+ [m
+ import os[m
+[1mdiff --git a/services/lakehouse/scripts/demo_schema_evolution.py b/services/lakehouse/scripts/demo_schema_evolution.py[m
+[1mindex 28c2740..ac9b788 100644[m
+[1m--- a/services/lakehouse/scripts/demo_schema_evolution.py[m
+[1m+++ b/services/lakehouse/scripts/demo_schema_evolution.py[m
+[36m@@ -1,5 +1,7 @@[m
+ """Demo: Iceberg schema evolution (metadata-only, no rewrite)."""[m
+[32m+[m
+ from __future__ import annotations[m
+[32m+[m
+ from lakehouse.spark_session import build_spark[m
+ [m
+ [m
+[1mdiff --git a/services/lakehouse/scripts/demo_time_travel.py b/services/lakehouse/scripts/demo_time_travel.py[m
+[1mindex 8b44d7f..02d5049 100644[m
+[1m--- a/services/lakehouse/scripts/demo_time_travel.py[m
+[1m+++ b/services/lakehouse/scripts/demo_time_travel.py[m
+[36m@@ -1,5 +1,7 @@[m
+ """Demo: Iceberg time travel."""[m
+[32m+[m
+ from __future__ import annotations[m
+[32m+[m
+ from lakehouse.spark_session import build_spark[m
+ [m
+ [m
