@@ -73,7 +73,11 @@ def run() -> None:
         )
     """)
 
-    df = spark.read.schema(BRONZE_SCHEMA).json("s3a://bronze/source=*/date=*/text/*.json")
+    df = (
+        spark.read.option("multiLine", "true")
+        .schema(BRONZE_SCHEMA)
+        .json("s3a://bronze/source=*/date=*/text/*.json")
+    )
 
     flat = df.select(
         F.col("metadata.doc_id").alias("doc_id"),
