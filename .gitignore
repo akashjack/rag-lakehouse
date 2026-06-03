@@ -39,3 +39,4 @@ Thumbs.db
 
 # Docker
 volumes/
+**/.env
