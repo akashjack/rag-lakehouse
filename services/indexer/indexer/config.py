@@ -30,8 +30,8 @@ class IndexerSettings(BaseSettings):
     embed_timeout_seconds: int = Field(default=60)
 
     # === Oracle ===
-    oracle_user: str = Field(default="system")
-    oracle_password: str = Field(default="RagPass_2026", alias="ORACLE_PWD")
+    oracle_user: str = Field(default="rag")
+    oracle_password: str = Field(default="RagApp_2026", alias="ORACLE_APP_PWD")
     oracle_dsn: str = Field(default="localhost:1521/FREEPDB1")
     oracle_pool_min: int = Field(default=1)
     oracle_pool_max: int = Field(default=4)

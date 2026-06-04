@@ -79,3 +79,7 @@ idx-status:
 	@docker exec rag-oracle bash -c 'echo "SELECT name, open_mode FROM v\$$pdbs;" | sqlplus -s sys/$${ORACLE_PWD:-RagPass_2026}@FREEPDB1 as sysdba' 2>&1 | grep -E "NAME|FREEPDB1|ORA-" | head -3 || echo "Oracle not reachable"
 	@echo ""
 	@$(MAKE) -s idx-ollama-check
+
+idx-bootstrap-user:
+	docker cp services/indexer/sql/bootstrap_user.sql rag-oracle:/tmp/bootstrap_user.sql
+	docker exec rag-oracle bash -c 'sqlplus -s sys/$${ORACLE_PWD:-RagPass_2026}@FREEPDB1 as sysdba @/tmp/bootstrap_user.sql'
