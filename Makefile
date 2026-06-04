@@ -83,3 +83,17 @@ idx-status:
 idx-bootstrap-user:
 	docker cp services/indexer/sql/bootstrap_user.sql rag-oracle:/tmp/bootstrap_user.sql
 	docker exec rag-oracle bash -c 'sqlplus -s sys/$${ORACLE_PWD:-RagPass_2026}@FREEPDB1 as sysdba @/tmp/bootstrap_user.sql'
+
+
+# ===== Phase 3: indexer CLI shortcuts =====
+.PHONY: idx-schema-init idx-stats idx-search
+
+idx-schema-init:
+	cd services/indexer && .venv/bin/python -m indexer schema-init
+
+idx-stats:
+	cd services/indexer && .venv/bin/python -m indexer stats
+
+# Usage: make idx-search Q="what is a kubernetes pod?"
+idx-search:
+	@cd services/indexer && .venv/bin/python -m indexer search "$(Q)" --k $${K:-5}
