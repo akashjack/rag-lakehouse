@@ -33,3 +33,7 @@ clean: ## Nuke containers + volumes
 
 typecheck: ## Run mypy type checking
 	cd services/ingestion && uv run mypy ingestion/
+
+# Usage: make idx-search-hybrid Q="what is a kubernetes service?"
+idx-search-hybrid:
+	@cd services/indexer && .venv/bin/python -m indexer search "$(Q)" --k ${K:-5} --hybrid
