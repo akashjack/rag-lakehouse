@@ -33,3 +33,7 @@ clean: ## Nuke containers + volumes
 
 typecheck: ## Run mypy type checking
 	cd services/ingestion && uv run mypy ingestion/
+
+# Usage: make idx-ask Q="what is a kubernetes pod?"
+idx-ask:
+	@cd services/indexer && .venv/bin/python -m indexer ask "$(Q)"

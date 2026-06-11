@@ -14,7 +14,7 @@ select = ["E", "F", "I", "B", "UP", "N", "SIM", "PL", "RUF"]
 # PLC0415: imports inside functions are sometimes legitimate (lazy-loading
 # heavy deps like Playwright that only ~10% of code paths need). We accept the
 # style cost for the startup-time benefit.
-ignore = ["PLR0913", "PLR2004", "PLC0415"]
+ignore = ["PLR0913", "PLR2004", "PLC0415", "N812"]
 
 [tool.ruff.format]
 quote-style = "double"
