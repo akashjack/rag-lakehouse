@@ -97,3 +97,17 @@ idx-stats:
 # Usage: make idx-search Q="what is a kubernetes pod?"
 idx-search:
 	@cd services/indexer && .venv/bin/python -m indexer search "$(Q)" --k $${K:-5}
+
+# ===== Phase 3: embed job =====
+.PHONY: idx-embed
+
+# Embed gold chunks to Oracle (reads lh.gold.chunks, outputs to Oracle chunks_embed).
+# Requires: idx-up idx-bootstrap-user idx-schema-init (run first)
+# Set ORACLE_PASSWORD in .env if not default
+idx-embed:
+	cd services/lakehouse && \
+	python -m lakehouse.jobs.load_gold_to_oracle \
+		--ollama-base-url http://localhost:11434 \
+		--embedding-model nomic-embed-text \
+		--oracle-password $${ORACLE_PASSWORD:-RagPass_2026} \
+		--batch-size 64
