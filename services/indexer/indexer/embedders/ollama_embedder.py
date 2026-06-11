@@ -63,15 +63,13 @@ class OllamaEmbedder(BaseEmbedder):
         if not isinstance(embeddings, list) or len(embeddings) != len(texts):
             got = len(embeddings) if isinstance(embeddings, list) else "non-list"
             raise ValueError(
-                f"Ollama returned malformed embeddings: " f"expected {len(texts)}, got {got}"
+                f"Ollama returned malformed embeddings: expected {len(texts)}, got {got}"
             )
 
         for idx, emb in enumerate(embeddings):
             if not isinstance(emb, list) or len(emb) != self._dimension:
                 actual = len(emb) if isinstance(emb, list) else "?"
-                raise ValueError(
-                    f"Embedding {idx} has dim {actual}, " f"expected {self._dimension}"
-                )
+                raise ValueError(f"Embedding {idx} has dim {actual}, expected {self._dimension}")
 
         log.debug("ollama.embed_batch", count=len(texts), model=self._model)
         return embeddings  # type: ignore[no-any-return]

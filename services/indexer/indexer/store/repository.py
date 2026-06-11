@@ -17,16 +17,16 @@ Search
 from __future__ import annotations
 
 import array
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import oracledb
 import structlog
-
-from indexer.store.connection import acquire
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    import oracledb
 
 
 log = structlog.get_logger(__name__)
@@ -65,6 +65,10 @@ def init_schema(pool: oracledb.ConnectionPool, *, force_drop: bool = False) -> N
     With force_drop=False (default), tolerates 'already exists' errors so
     init is safely re-runnable.
     """
+    import oracledb
+
+    from indexer.store.connection import acquire
+
     sql_text = SCHEMA_FILE.read_text(encoding="utf-8")
     statements = _split_statements(sql_text)
 
@@ -158,6 +162,8 @@ def upsert_chunks(
     chunk_text, embedding (list[float]). title, source_url, char_count
     are optional.
     """
+    from indexer.store.connection import acquire
+
     if not rows:
         return 0
 
@@ -220,6 +226,8 @@ def dense_search(
     embedding_model_ver: str,
 ) -> list[dict[str, object]]:
     """Cosine ANN search via HNSW. Returns top-k rows sorted by distance ascending."""
+    from indexer.store.connection import acquire
+
     qvec = _to_oracle_vector(query_vector)
     with acquire(pool) as conn:
         cur = conn.cursor()
@@ -242,6 +250,10 @@ def dense_search(
 
 def count_rows(pool: oracledb.ConnectionPool) -> dict[str, int]:
     """Return total + per-model row counts. Useful for the CLI 'stats' command."""
+    import oracledb
+
+    from indexer.store.connection import acquire
+
     with acquire(pool) as conn:
         cur = conn.cursor()
         try:
@@ -259,3 +271,175 @@ def count_rows(pool: oracledb.ConnectionPool) -> dict[str, int]:
         out[model_ver] = count
         out["_total"] += count
     return out
+
+
+# =========================================================================
+# HNSW index lifecycle
+# =========================================================================
+
+
+def drop_vector_index(pool: oracledb.ConnectionPool) -> None:
+    """Drop the HNSW vector index so DML is allowed.
+
+    Oracle's INMEMORY NEIGHBOR GRAPH index does not support concurrent DML
+    (ORA-51928). Drop before bulk upsert, rebuild after.
+    """
+    import oracledb
+
+    from indexer.store.connection import acquire
+
+    with acquire(pool) as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute("DROP INDEX chunks_embed_hnsw_idx")
+            conn.commit()
+            log.info("oracle.vector_index.dropped")
+        except oracledb.DatabaseError as e:
+            if e.args[0].code == 1418:  # ORA-01418: index does not exist
+                log.info("oracle.vector_index.not_found_skip")
+            else:
+                raise
+
+
+def rebuild_vector_index(pool: oracledb.ConnectionPool, settings: object) -> None:
+    """Rebuild the HNSW vector index after bulk load."""
+    from indexer.store.connection import acquire
+
+    m = getattr(settings, "hnsw_neighbors", 16)
+    ef = getattr(settings, "hnsw_ef_construction", 200)
+    sql = f"""
+        CREATE VECTOR INDEX chunks_embed_hnsw_idx
+            ON chunks_embed (embedding)
+            ORGANIZATION INMEMORY NEIGHBOR GRAPH
+            DISTANCE COSINE
+            WITH TARGET ACCURACY 95
+            PARAMETERS (TYPE HNSW, NEIGHBORS {m}, EFCONSTRUCTION {ef})
+    """
+    with acquire(pool) as conn:
+        cur = conn.cursor()
+        cur.execute(sql)
+        conn.commit()
+    log.info("oracle.vector_index.rebuilt", neighbors=m, ef_construction=ef)
+
+
+# =========================================================================
+# Full-text search (Oracle Text CONTEXT index)
+# =========================================================================
+
+# Oracle Text CONTAINS operator chars that cause DRG-50901 parse errors when
+# present in raw natural-language queries. Strip them; they carry no meaning for
+# keyword retrieval (? is a fuzzy-operator prefix, & is AND, | is OR, etc.).
+_ORA_TEXT_SPECIAL = re.compile(r"[&|!(){}\[\]*?,;:\"'\\]")
+
+
+def _sanitize_fts_query(text: str) -> str:
+    return _ORA_TEXT_SPECIAL.sub(" ", text).strip()
+
+
+_FTS_SEARCH_SQL = """
+SELECT
+    chunk_id,
+    doc_id,
+    source,
+    chunk_index,
+    title,
+    source_url,
+    SCORE(1)                                      AS fts_score,
+    DBMS_LOB.SUBSTR(chunk_text, 4000, 1)          AS chunk_text_head
+FROM chunks_embed
+WHERE CONTAINS(chunk_text, :query_text, 1) > 0
+  AND embedding_model_ver = :model_ver
+ORDER BY fts_score DESC
+FETCH FIRST :k ROWS ONLY
+"""
+
+
+def fts_search(
+    pool: oracledb.ConnectionPool,
+    query_text: str,
+    k: int,
+    embedding_model_ver: str,
+) -> list[dict[str, object]]:
+    """Oracle Text CONTAINS search. Returns top-k by FTS relevance score (descending)."""
+    from indexer.store.connection import acquire
+
+    with acquire(pool) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            _FTS_SEARCH_SQL,
+            query_text=_sanitize_fts_query(query_text),
+            model_ver=embedding_model_ver,
+            k=k,
+        )
+        cols = [d[0].lower() for d in cur.description]
+        out = [dict(zip(cols, row, strict=True)) for row in cur]
+    log.info("oracle.fts_search", k=k, returned=len(out))
+    return out
+
+
+# =========================================================================
+# Reciprocal Rank Fusion
+# =========================================================================
+
+
+def reciprocal_rank_fusion(
+    dense_results: list[dict[str, object]],
+    fts_results: list[dict[str, object]],
+    k: int = 5,
+    rrf_k: int = 60,
+) -> list[dict[str, object]]:
+    """Fuse dense (ANN) and sparse (FTS) result lists via RRF.
+
+    RRF score = 1/(rrf_k + rank_dense) + 1/(rrf_k + rank_fts)
+
+    rrf_k=60 is the standard value from the original RRF paper
+    (Cormack et al. 2009). Higher values smooth the influence of
+    top-ranked results; lower values amplify them.
+
+    Chunks that appear in only one list still contribute — they get
+    a rank of len(other_list) + 1 (i.e., effectively not present).
+    """
+    scores: dict[str, float] = {}
+    meta: dict[str, dict[str, object]] = {}
+
+    for rank, row in enumerate(dense_results, start=1):
+        cid = str(row["chunk_id"])
+        scores[cid] = scores.get(cid, 0.0) + 1.0 / (rrf_k + rank)
+        meta[cid] = row
+
+    for rank, row in enumerate(fts_results, start=1):
+        cid = str(row["chunk_id"])
+        scores[cid] = scores.get(cid, 0.0) + 1.0 / (rrf_k + rank)
+        if cid not in meta:
+            meta[cid] = row
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
+
+    results = []
+    for rank, (cid, score) in enumerate(ranked, start=1):
+        row = dict(meta[cid])
+        row["rrf_score"] = round(score, 6)
+        row["rrf_rank"] = rank
+        results.append(row)
+
+    log.info("oracle.rrf", dense_in=len(dense_results), fts_in=len(fts_results), out=len(results))
+    return results
+
+
+def hybrid_search(
+    pool: oracledb.ConnectionPool,
+    query_vector: Sequence[float],
+    query_text: str,
+    k: int,
+    embedding_model_ver: str,
+    rrf_k: int = 60,
+    fetch: int = 20,
+) -> list[dict[str, object]]:
+    """Dense ANN + Oracle Text FTS fused via RRF.
+
+    fetch: how many candidates to retrieve from each sub-search before fusion.
+    Set fetch >= 2*k to ensure good recall after fusion.
+    """
+    dense = dense_search(pool, query_vector, fetch, embedding_model_ver)
+    fts = fts_search(pool, query_text, fetch, embedding_model_ver)
+    return reciprocal_rank_fusion(dense, fts, k=k, rrf_k=rrf_k)
