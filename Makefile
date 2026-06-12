@@ -54,3 +54,9 @@ obs-down:
 
 eval-rag:
 	cd services/indexer && .venv/bin/python ../../scripts/eval_rag.py
+
+# ===== Phase 12: corpus expansion =====
+.PHONY: corpus-expand
+
+corpus-expand:
+	cd services/indexer && .venv/bin/python ../../scripts/expand_corpus.py
