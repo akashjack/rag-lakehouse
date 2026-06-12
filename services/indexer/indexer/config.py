@@ -40,6 +40,12 @@ class IndexerSettings(BaseSettings):
     hnsw_neighbors: int = Field(default=16, alias="HNSW_M")
     hnsw_ef_construction: int = Field(default=200)
 
+    # === LLM ===
+    ollama_llm_model: str = Field(default="llama3.2:3b")
+    llm_timeout_seconds: int = Field(default=120)
+    rag_max_context_chars: int = Field(default=6000)
+    rag_top_k: int = Field(default=5)
+
     # === Behaviour ===
     embedding_model_version: str = Field(default="nomic-embed-text-v1.5")
     # Used in MERGE keys — re-running embed with a new value re-embeds rows.
