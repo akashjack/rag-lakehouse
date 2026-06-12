@@ -13,6 +13,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.metrics import router as metrics_router
 from api.routes.ask import router as ask_router
 from api.routes.health import router as health_router
 from api.routes.search import router as search_router
@@ -32,6 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(metrics_router)
 app.include_router(health_router)
 app.include_router(search_router)
 app.include_router(ask_router)

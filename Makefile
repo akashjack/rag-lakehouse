@@ -37,3 +37,14 @@ typecheck: ## Run mypy type checking
 # Usage: make idx-search-hybrid Q="what is a kubernetes service?"
 idx-search-hybrid:
 	@cd services/indexer && .venv/bin/python -m indexer search "$(Q)" --k ${K:-5} --hybrid
+
+# ===== Phase 9: observability =====
+.PHONY: obs-up obs-down
+
+obs-up:
+	docker compose -f infra/docker/docker-compose.observability.yml up -d
+	@echo 'Prometheus: http://localhost:9090'
+	@echo 'Grafana:    http://localhost:3000  (admin/admin)'
+
+obs-down:
+	docker compose -f infra/docker/docker-compose.observability.yml down
