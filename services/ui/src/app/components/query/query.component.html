@@ -1,0 +1,62 @@
+<div class="rag-container">
+  <h1>RAG Lakehouse</h1>
+  <p class="subtitle">Kubernetes · Spring Boot · Angular docs</p>
+
+  <div class="input-row">
+    <input
+      [(ngModel)]="question"
+      placeholder="Ask a question..."
+      (keyup.enter)="ask()"
+      class="query-input"
+    />
+    <select [(ngModel)]="mode" class="mode-select">
+      <option value="hybrid">Hybrid</option>
+      <option value="dense">Dense</option>
+    </select>
+    <button (click)="ask()" [disabled]="loading()" class="btn-ask">
+      {{ loading() ? 'Thinking...' : 'Ask' }}
+    </button>
+    <button (click)="search()" [disabled]="loading()" class="btn-search">
+      Search
+    </button>
+  </div>
+
+  @if (error()) {
+    <div class="error">{{ error() }}</div>
+  }
+
+  @if (answer()) {
+    <div class="answer-panel">
+      <h3>Answer</h3>
+      <p class="answer-text">{{ answer() }}</p>
+
+      @if (sources().length) {
+        <div class="citations">
+          <h4>Sources</h4>
+          @for (s of sources(); track s.chunk_id) {
+            <div class="citation">
+              <span class="badge">{{ s.source }}</span>
+              <a [href]="s.source_url" target="_blank">{{ s.title }}</a>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (searchResults().length) {
+    <div class="results-panel">
+      <h3>Search Results</h3>
+      @for (r of searchResults(); track r.chunk_id) {
+        <div class="result-card">
+          <div class="result-header">
+            <span class="badge">{{ r.source }}</span>
+            <a [href]="r.source_url" target="_blank">{{ r.title }}</a>
+            <span class="score">score: {{ r.score }}</span>
+          </div>
+          <p class="result-text">{{ r.text_head }}</p>
+        </div>
+      }
+    </div>
+  }
+</div>
