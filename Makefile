@@ -37,7 +37,3 @@ typecheck: ## Run mypy type checking
 # Usage: make idx-search-hybrid Q="what is a kubernetes service?"
 idx-search-hybrid:
 	@cd services/indexer && .venv/bin/python -m indexer search "$(Q)" --k ${K:-5} --hybrid
-
-# Usage: make idx-agent Q="what is a kubernetes pod?"
-idx-agent:
-	@cd services/indexer && .venv/bin/python -m indexer agent "$(Q)"
