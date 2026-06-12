@@ -3,7 +3,8 @@
 Usage:
     python -m indexer schema-init [--force-drop]
     python -m indexer stats
-    python -m indexer search "your query" [--k 5]
+    python -m indexer search "your query" [--k 5] [--hybrid]
+    python -m indexer ask "your question" [--k 5] [--dense] [--no-citations]
     python -m indexer config
 """
 
@@ -17,8 +18,9 @@ import typer
 
 from indexer.config import IndexerSettings, get_settings
 from indexer.embedders.ollama_embedder import OllamaEmbedder
+from indexer.rag_chain import ask, build_citations
 from indexer.store.connection import build_pool
-from indexer.store.repository import count_rows, dense_search, init_schema
+from indexer.store.repository import count_rows, dense_search, hybrid_search, init_schema
 
 log = structlog.get_logger(__name__)
 app = typer.Typer(
@@ -75,8 +77,9 @@ def cmd_search(
     query: str = typer.Argument(..., help="Search query text."),
     k: int = typer.Option(5, "--k", help="Number of results to return."),
     json_output: bool = typer.Option(False, "--json", help="Emit JSON."),
+    use_hybrid: bool = typer.Option(False, "--hybrid", help="Use hybrid ANN+FTS via RRF."),
 ) -> None:
-    """Embed the query and run a dense ANN search."""
+    """Embed the query and run dense ANN search (or hybrid ANN+FTS with --hybrid)."""
     settings = _settings_from_cli()
 
     with OllamaEmbedder(
@@ -90,12 +93,21 @@ def cmd_search(
 
     pool = build_pool(settings)
     try:
-        results = dense_search(
-            pool,
-            query_vector=query_vec,
-            k=k,
-            embedding_model_ver=settings.embedding_model_version,
-        )
+        if use_hybrid:
+            results = hybrid_search(
+                pool,
+                query_vector=query_vec,
+                query_text=query,
+                k=k,
+                embedding_model_ver=settings.embedding_model_version,
+            )
+        else:
+            results = dense_search(
+                pool,
+                query_vector=query_vec,
+                k=k,
+                embedding_model_ver=settings.embedding_model_version,
+            )
     finally:
         pool.close()
 
@@ -110,9 +122,11 @@ def cmd_search(
     typer.echo(f"Top {len(results)} results for: {query!r}\n")
     for rank, row in enumerate(results, start=1):
         dist = row.get("distance")
+        rrf = row.get("rrf_score")
+        score_str = f"rrf={rrf:.4f}" if rrf is not None else f"dist={dist:.4f}"
         head = (row.get("chunk_text_head") or "")[:220].replace("\n", " ")
         typer.echo(
-            f"#{rank}  dist={dist:.4f}  source={row.get('source'):<11} "
+            f"#{rank}  {score_str}  source={row.get('source'):<11} "
             f"doc={row.get('doc_id', '')[:10]}...  chunk_idx={row.get('chunk_index')}"
         )
         if row.get("title"):
@@ -120,6 +134,96 @@ def cmd_search(
         if head:
             typer.echo(f"      text:  {head}...")
         typer.echo("")
+
+
+@app.command("ask")
+def cmd_ask(
+    question: str = typer.Argument(..., help="Natural language question."),
+    k: int = typer.Option(5, "--k", help="Number of chunks to retrieve."),
+    use_hybrid: bool = typer.Option(True, "--hybrid/--dense", help="Use hybrid retrieval."),
+    show_citations: bool = typer.Option(True, "--citations/--no-citations"),
+) -> None:
+    """Retrieve context chunks and stream an LLM-generated answer."""
+    settings = _settings_from_cli()
+
+    with OllamaEmbedder(
+        base_url=settings.ollama_base_url,
+        model=settings.ollama_embed_model,
+        dimension=settings.embedding_dim,
+        timeout_seconds=settings.embed_timeout_seconds,
+    ) as embedder:
+        query_vec = embedder.embed_batch([question])[0]
+
+    pool = build_pool(settings)
+    try:
+        if use_hybrid:
+            chunks = hybrid_search(
+                pool,
+                query_vector=query_vec,
+                query_text=question,
+                k=k,
+                embedding_model_ver=settings.embedding_model_version,
+            )
+        else:
+            chunks = dense_search(
+                pool,
+                query_vector=query_vec,
+                k=k,
+                embedding_model_ver=settings.embedding_model_version,
+            )
+    finally:
+        pool.close()
+
+    if not chunks:
+        typer.echo("No relevant chunks found. Have you run the embed job?")
+        raise typer.Exit(1)
+
+    typer.echo(f"\nQuestion: {question}\n")
+    typer.echo("Answer:")
+    typer.echo("-" * 60)
+
+    for token in ask(settings, chunks, question):
+        typer.echo(token, nl=False)
+
+    typer.echo("\n" + "-" * 60)
+
+    if show_citations:
+        citations = build_citations(chunks, settings.rag_max_context_chars)
+        typer.echo("\nSources:")
+        for c in citations:
+            typer.echo(f"  [{c['number']}] {c['title']} ({c['source']})")
+            if c["source_url"]:
+                typer.echo(f"       {c['source_url']}")
+
+
+@app.command("agent")
+def cmd_agent(
+    question: str = typer.Argument(..., help="Natural language question."),
+    show_trace: bool = typer.Option(False, "--trace", help="Show intent + retry info."),
+) -> None:
+    """Run the full LangGraph agent (router -> retriever -> generator -> reranker)."""
+    from indexer.agent import run_agent
+
+    settings = _settings_from_cli()
+
+    typer.echo(f"\nQuestion: {question}\n")
+    result = run_agent(settings, question)
+
+    typer.echo("Answer:")
+    typer.echo("-" * 60)
+    typer.echo(result.get("final_answer", "(no answer)"))
+    typer.echo("-" * 60)
+
+    if show_trace:
+        typer.echo(f"\n[intent={result.get('intent')}  retries={result.get('retry_count')}]")
+
+    citations = result.get("citations", [])
+    if citations:
+        typer.echo("\nSources:")
+        for c in citations:
+            typer.echo(f"  [{c['number']}] {c['title']} ({c['source']})")
+            if c.get("source_url"):
+                typer.echo(f"       {c['source_url']}")
 
 
 @app.command("config")
