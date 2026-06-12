@@ -18,7 +18,7 @@ import typer
 from indexer.config import IndexerSettings, get_settings
 from indexer.embedders.ollama_embedder import OllamaEmbedder
 from indexer.store.connection import build_pool
-from indexer.store.repository import count_rows, dense_search, init_schema
+from indexer.store.repository import count_rows, dense_search, hybrid_search, init_schema
 
 log = structlog.get_logger(__name__)
 app = typer.Typer(
@@ -75,8 +75,9 @@ def cmd_search(
     query: str = typer.Argument(..., help="Search query text."),
     k: int = typer.Option(5, "--k", help="Number of results to return."),
     json_output: bool = typer.Option(False, "--json", help="Emit JSON."),
+    use_hybrid: bool = typer.Option(False, "--hybrid", help="Use hybrid ANN+FTS via RRF."),
 ) -> None:
-    """Embed the query and run a dense ANN search."""
+    """Embed the query and run dense ANN search (or hybrid ANN+FTS with --hybrid)."""
     settings = _settings_from_cli()
 
     with OllamaEmbedder(
@@ -90,12 +91,21 @@ def cmd_search(
 
     pool = build_pool(settings)
     try:
-        results = dense_search(
-            pool,
-            query_vector=query_vec,
-            k=k,
-            embedding_model_ver=settings.embedding_model_version,
-        )
+        if use_hybrid:
+            results = hybrid_search(
+                pool,
+                query_vector=query_vec,
+                query_text=query,
+                k=k,
+                embedding_model_ver=settings.embedding_model_version,
+            )
+        else:
+            results = dense_search(
+                pool,
+                query_vector=query_vec,
+                k=k,
+                embedding_model_ver=settings.embedding_model_version,
+            )
     finally:
         pool.close()
 
@@ -110,9 +120,11 @@ def cmd_search(
     typer.echo(f"Top {len(results)} results for: {query!r}\n")
     for rank, row in enumerate(results, start=1):
         dist = row.get("distance")
+        rrf = row.get("rrf_score")
+        score_str = f"rrf={rrf:.4f}" if rrf is not None else f"dist={dist:.4f}"
         head = (row.get("chunk_text_head") or "")[:220].replace("\n", " ")
         typer.echo(
-            f"#{rank}  dist={dist:.4f}  source={row.get('source'):<11} "
+            f"#{rank}  {score_str}  source={row.get('source'):<11} "
             f"doc={row.get('doc_id', '')[:10]}...  chunk_idx={row.get('chunk_index')}"
         )
         if row.get("title"):
