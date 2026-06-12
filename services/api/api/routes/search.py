@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from api.config import get_settings
+from api.metrics import REQUEST_COUNT, RETRIEVAL_LATENCY, SEARCH_RESULT_COUNT
 
 router = APIRouter()
 
@@ -80,6 +82,7 @@ def search(
         ) as embedder:
             query_vec = embedder.embed_batch([q])[0]
 
+        t0 = time.perf_counter()
         pool = build_pool(idx_settings)
         try:
             if mode == "hybrid":
@@ -103,6 +106,9 @@ def search(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
+    RETRIEVAL_LATENCY.observe(time.perf_counter() - t0)
+    SEARCH_RESULT_COUNT.observe(len(rows))
+    REQUEST_COUNT.labels(endpoint="/search", method="GET", status="200").inc()
     return SearchResponse(
         query=q,
         mode=mode,
