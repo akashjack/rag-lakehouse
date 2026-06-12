@@ -48,3 +48,9 @@ obs-up:
 
 obs-down:
 	docker compose -f infra/docker/docker-compose.observability.yml down
+
+# ===== Phase 10: RAGAS-style evaluation =====
+.PHONY: eval-rag
+
+eval-rag:
+	cd services/indexer && .venv/bin/python ../../scripts/eval_rag.py
