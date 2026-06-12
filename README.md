@@ -5,32 +5,32 @@ A production-shaped Retrieval-Augmented Generation system built on Oracle 23ai, 
 ---
 
 ## Architecture
-                    ┌─────────────────────────────────────────┐
-                    │           Angular 17 UI (port 4200)      │
+                    ┌───────────────────────────────────────────┐
+                    │           Angular 17 UI (port 4200)       │
                     │   Query input · SSE streaming · Citations │
-                    └────────────────┬────────────────────────┘
+                    └────────────────┬──────────────────────────┘
                                      │ HTTP
                     ┌────────────────▼────────────────────────┐
-                    │        FastAPI Gateway (port 8000)        │
-                    │  /health  /search  /ask  /metrics         │
-                    └──────┬──────────────┬────────────────────┘
+                    │        FastAPI Gateway (port 8000)      │
+                    │  /health  /search  /ask  /metrics       │
+                    └──────┬──────────────┬───────────────────┘
                            │              │
            ┌───────────────▼──┐    ┌──────▼──────────────┐
-           │  Hybrid Retrieval │    │   LangGraph Agent    │
-           │  Dense ANN + FTS  │    │  Router→Retriever→  │
-           │  fused via RRF    │    │  Generator→Reranker  │
-           └───────┬───────────┘    └──────┬──────────────┘
+           │  Hybrid Retrieval│    │   LangGraph Agent   │
+           │  Dense ANN + FTS │    │  Router→Retriever→  │
+           │  fused via RRF   │    │  Generator→Reranker │
+           └───────┬──────────┘    └───────┬─────────────┘
                    │                       │
     ┌──────────────▼───────────────────────▼──────────────┐
-    │              Oracle 23ai Free                         │
-    │  chunks_embed: VECTOR(768) + HNSW + Oracle Text FTS  │
-    │  1029 chunks · nomic-embed-text-v1.5                  │
-    └──────────────────────────────────────────────────────┘
-                   │
-    ┌──────────────▼───────────────────────────────────────┐
-    │           Apache Iceberg Medallion Lakehouse           │
-    │  Bronze (raw HTML) → Silver (clean text) → Gold       │
-    │  (chunks)  ·  MinIO object store  ·  Iceberg REST     │
+    │              Oracle 23ai Free                       │
+    │  chunks_embed: VECTOR(768) + HNSW + Oracle Text FTS │
+    │  1029 chunks · nomic-embed-text-v1.5                │
+    └─────────────────────────┬───────────────────────────┘
+                              │
+    ┌─────────────────────────▼────────────────────────────┐
+    │           Apache Iceberg Medallion Lakehouse         │
+    │  Bronze (raw HTML) → Silver (clean text) → Gold      │
+    │  (chunks)  ·  MinIO object store  ·  Iceberg REST    │
     └──────────────────────────────────────────────────────┘
 
 ## Tech Stack
