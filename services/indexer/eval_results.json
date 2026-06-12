@@ -1,0 +1,190 @@
+{
+  "results": [
+    {
+      "question": "What is a Kubernetes Pod?",
+      "source": "kubernetes",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.8609,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "How does Kubernetes handle pod scheduling?",
+      "source": "kubernetes",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.8474,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What is a Kubernetes Service?",
+      "source": "kubernetes",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.7065,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 0.0
+    },
+    {
+      "question": "What is a Kubernetes Deployment?",
+      "source": "kubernetes",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.6353,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 0.0
+    },
+    {
+      "question": "What is a StatefulSet in Kubernetes?",
+      "source": "kubernetes",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.8194,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "How does Spring Boot auto-configuration work?",
+      "source": "spring",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.813,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What is Spring Boot Actuator?",
+      "source": "spring",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.8388,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "How do you define a REST controller in Spring Boot?",
+      "source": "spring",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.6173,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 0.0
+    },
+    {
+      "question": "What is dependency injection in Spring?",
+      "source": "spring",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.8686,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What is Spring Data JPA?",
+      "source": "spring",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.8446,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What is an Angular component?",
+      "source": "angular",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.8577,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What is Angular dependency injection?",
+      "source": "angular",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.7278,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What are Angular signals?",
+      "source": "angular",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.8272,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What is the Angular change detection strategy?",
+      "source": "angular",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.7839,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What is an Angular directive?",
+      "source": "angular",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.7566,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 0.0
+    },
+    {
+      "question": "How do you configure liveness probes in Kubernetes?",
+      "source": "kubernetes",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.681,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 0.0
+    },
+    {
+      "question": "What is a Kubernetes ConfigMap?",
+      "source": "kubernetes",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.6794,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What is Spring Security?",
+      "source": "spring",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.8718,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What is Angular routing?",
+      "source": "angular",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.7751,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    },
+    {
+      "question": "What is a Kubernetes Namespace?",
+      "source": "kubernetes",
+      "chunks_retrieved": 5,
+      "answer_relevance": 0.7274,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "faithfulness": 1.0
+    }
+  ],
+  "aggregate": {
+    "answer_relevance": 0.777,
+    "context_precision": 1.0,
+    "context_recall": 1.0,
+    "faithfulness": 0.75
+  }
+}
