@@ -60,3 +60,9 @@ eval-rag:
 
 corpus-expand:
 	cd services/indexer && .venv/bin/python ../../scripts/expand_corpus.py
+
+# ===== API server =====
+.PHONY: api-up
+
+api-up:
+	cd services/api && .venv/bin/python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
